@@ -1,4 +1,5 @@
 const express = require('express');
+const { REGEX_DATE } = require('./constants');
 const { v4: generateId } = require('uuid');
 const database = require('./database');
 
@@ -27,14 +28,25 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
 app.get('/', async (req, res) => {
+  let {offset, skip} = req.query
+
+  offset = parseInt(offset)
+  skip   = parseInt(skip)
+
   const todos = database.client.db('todos').collection('todos');
-  const response = await todos.find({}).toArray();
+  const todosList = await todos.find({}).skip(skip).limit(offset).toArray();
   res.status(200);
-  res.json(response);
+  res.json({todosList});
 });
 
 app.post('/', async (req, res) => {
-  const { text } = req.body;
+  const { text, due_date } = req.body;
+
+  if(!REGEX_DATE.test(due_date)) {
+    res.status(400);
+    res.json({ message: "invalid 'due_date' expected format YYYY-MM-DD." });
+    return;
+  }
 
   if (typeof text !== 'string') {
     res.status(400);
@@ -42,7 +54,7 @@ app.post('/', async (req, res) => {
     return;
   }
 
-  const todo = { id: generateId(), text, completed: false };
+  const todo = { id: generateId(), text, completed: false, due_date };
   await database.client.db('todos').collection('todos').insertOne(todo);
   res.status(201);
   res.json(todo);
