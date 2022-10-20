@@ -92,7 +92,7 @@ app.put('/:id', async (req, res) => {
     return;
   }
 
-  const result = await database.client.db('todos').collection('todo').updateOne(
+  const result = await database.client.db('todos').collection('todos').updateOne(
     { id },
     { $set: { completed } },
   );
