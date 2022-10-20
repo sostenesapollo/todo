@@ -1,17 +1,19 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import makeStyles from "@mui/styles/makeStyles";
-import CircularProgress from '@mui/material/CircularProgress';
+import CircularProgress from "@mui/material/CircularProgress";
+import LoadingButton from "@mui/lab/LoadingButton";
 import {
   Container,
   Typography,
-  Button,
   Icon,
   Paper,
   Box,
   TextField,
   Checkbox,
-  Grid
+  Grid,
+  Button,
 } from "@mui/material";
+import Snackbar from "./snackbar";
 
 const useStyles = makeStyles({
   addTodoContainer: { padding: 10 },
@@ -38,20 +40,29 @@ const useStyles = makeStyles({
   },
 });
 
-const uniqueArray = a => [...new Set(a.map(o => JSON.stringify(o)))].map(s => JSON.parse(s))
+const uniqueArray = (a) =>
+  [...new Set(a.map((o) => JSON.stringify(o)))].map((s) => JSON.parse(s));
 
 function Todos() {
   const classes = useStyles();
   const [todos, setTodos] = useState([]);
-  const [newTodo, setNewTodo] = useState({text:'', due_date:''});
-  const [loading, setLoading] = useState(false)
-  const [hasMore, setHasMore] = useState(true)
-  const perPage = 20
+  const [newTodo, setNewTodo] = useState({ text: "", due_date: "" });
+  const [loading, setLoading] = useState(false);
+  const [loadingAddButton, setLoadingAddButton] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [snackbar, setSnackbar] = useState({
+    show: false,
+    message: "",
+    severity: "error",
+  });
+  const perPage = 20;
 
-  useEffect(() => { loadMore() }, [setTodos]);
+  useEffect(() => {
+    loadMore();
+  }, [setTodos]);
 
   function addTodo() {
-    // console.log(todo);
+    setLoadingAddButton(true);
     fetch("http://localhost:3001/", {
       headers: {
         Accept: "application/json",
@@ -60,8 +71,29 @@ function Todos() {
       method: "POST",
       body: JSON.stringify(newTodo),
     })
-      .then((response) => response.json())
-      .then((todo) => setTodos([...todos, todo]));
+      .then(async (response) => {
+        if (!response.ok) {
+          const { message } = await response.json();
+          setSnackbar({ show: true, message, severity: "error" });
+        } else {
+          const todo = await response.json();
+          setTodos([...todos, todo]);
+          setSnackbar({
+            show: true,
+            message: "Todo added successfully.",
+            severity: "success",
+          });
+        }
+        setLoadingAddButton(false);
+      })
+      .catch(() => {
+        setSnackbar({
+          show: true,
+          message: "Error to create.",
+          severity: "error",
+        });
+        setLoadingAddButton(false);
+      });
     // setNewTodo({...newTodo, text: todoText});
   }
 
@@ -94,28 +126,28 @@ function Todos() {
 
   const observer = useRef();
 
-  function loadMore () {
-    setLoading(true)
+  function loadMore() {
+    setLoading(true);
     fetch(`http://localhost:3001/?skip=${todos.length}&offset=${perPage}`)
       .then((response) => response.json())
-      .then(({todosList}) => {
-        const newTodos = uniqueArray([...todos, ...todosList])
-        if(newTodos.length === todos.length) {
-          setHasMore(false)
+      .then(({ todosList }) => {
+        const newTodos = uniqueArray([...todos, ...todosList]);
+        if (newTodos.length === todos.length) {
+          setHasMore(false);
         }
-        setTodos(newTodos)
-        setLoading(false)
-      })
+        setTodos(newTodos);
+        setLoading(false);
+      });
   }
 
   const lastTodoElementRef = useCallback(
     (node) => {
-      if(!hasMore) return
+      if (!hasMore) return;
       if (loading) return;
       if (observer.current) observer.current.disconnect();
       observer.current = new IntersectionObserver((entries) => {
         if (entries[0].isIntersecting && !loading) {
-          loadMore()
+          loadMore();
         }
       });
       if (node) observer.current.observe(node);
@@ -125,6 +157,12 @@ function Todos() {
 
   return (
     <Container maxWidth="md">
+      <Snackbar
+        severity={snackbar.severity}
+        message={snackbar.message}
+        show={snackbar.show}
+        setShow={(show) => setSnackbar({ ...snackbar, show })}
+      />
       <Typography variant="h3" component="h1" gutterBottom>
         Todos
       </Typography>
@@ -139,7 +177,10 @@ function Todos() {
                   addTodo();
                 }
               }}
-              onChange={(event) => setNewTodo({...newTodo, text:event.target.value})}
+              disabled={loadingAddButton}
+              onChange={(event) =>
+                setNewTodo({ ...newTodo, text: event.target.value })
+              }
             />
           </Box>
           <Box flexGrow={1}>
@@ -151,21 +192,26 @@ function Todos() {
                   addTodo();
                 }
               }}
-              onChange={(event) => setNewTodo({...newTodo, due_date:event.target.value})}
+              disabled={loadingAddButton}
+              onChange={(event) =>
+                setNewTodo({ ...newTodo, due_date: event.target.value })
+              }
             />
           </Box>
-          <Button
+          <LoadingButton
             className={classes.addTodoButton}
             startIcon={<Icon>add</Icon>}
             onClick={() => addTodo(newTodo.text)}
+            disabled={loadingAddButton}
+            loading={loadingAddButton}
           >
             Add
-          </Button>
+          </LoadingButton>
         </Box>
       </Paper>
-        <Paper className={classes.todosContainer}>
-          {todos.length > 0 && (
-            <Box display="flex" flexDirection="column" alignItems="stretch">
+      <Paper className={classes.todosContainer}>
+        {todos.length > 0 && (
+          <Box display="flex" flexDirection="column" alignItems="space-between">
             {todos.map(({ id, text, due_date, completed }, index) => (
               <Box
                 key={id}
@@ -181,7 +227,7 @@ function Todos() {
                   checked={completed}
                   onChange={() => toggleTodoCompleted(id)}
                 ></Checkbox>
-                <Box flexGrow={1}>
+                <Box width="50%">
                   <Typography
                     className={completed ? classes.todoTextCompleted : ""}
                     variant="body1"
@@ -189,7 +235,7 @@ function Todos() {
                     {text}
                   </Typography>
                 </Box>
-                <Box flexGrow={1} >
+                <Box width="50%">
                   <Typography
                     className={completed ? classes.todoTextCompleted : ""}
                     variant="body1"
@@ -206,14 +252,14 @@ function Todos() {
                 </Button>
               </Box>
             ))}
-            </Box>
-          )}
-          
-          <Grid container direction="row" justifyContent="space-around">
-            {loading && <CircularProgress /> }
-            {!hasMore && 'No more todos to load.'}
-          </Grid>
-        </Paper>
+          </Box>
+        )}
+
+        <Grid container direction="row" justifyContent="space-around">
+          {loading && <CircularProgress />}
+          {!hasMore && "No more todos to load."}
+        </Grid>
+      </Paper>
     </Container>
   );
 }

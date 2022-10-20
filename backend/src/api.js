@@ -42,15 +42,27 @@ app.get('/', async (req, res) => {
 app.post('/', async (req, res) => {
   const { text, due_date } = req.body;
 
-  if(!REGEX_DATE.test(due_date)) {
+  if (typeof text !== 'string') {
     res.status(400);
-    res.json({ message: "invalid 'due_date' expected format YYYY-MM-DD." });
+    res.json({ message: "invalid 'text' expected string." });
     return;
   }
 
-  if (typeof text !== 'string') {
+  if(text.trim() === '') {
     res.status(400);
-    res.json({ message: "invalid 'text' expected string" });
+    res.json({ message: "Todo message should not be empty." });
+    return;
+  }
+
+  if(text.length > 40) {
+    res.status(400);
+    res.json({ message: "Message max length is 40 characters." });
+    return;
+  }
+
+  if(!REGEX_DATE.test(due_date)) {
+    res.status(400);
+    res.json({ message: "invalid 'due_date' expected format YYYY-MM-DD." });
     return;
   }
 
@@ -70,10 +82,11 @@ app.put('/:id', async (req, res) => {
     return;
   }
 
-  await database.client.db('todos').collection('todo').updateOne(
+  const result = await database.client.db('todos').collection('todo').updateOne(
     { id },
     { $set: { completed } },
   );
+  console.log(result);
   res.status(200);
   res.end();
 });
