@@ -2,6 +2,7 @@ const express = require('express');
 const { REGEX_DATE } = require('./constants');
 const { v4: generateId } = require('uuid');
 const database = require('./database');
+const {todayDate} = require('./util')
 
 const app = express();
 
@@ -28,13 +29,22 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
 app.get('/', async (req, res) => {
-  let {offset, skip} = req.query
+  let {offset, skip, due_today} = req.query
 
   offset = parseInt(offset)
   skip   = parseInt(skip)
+  due_today = due_today === 'true'
+
+  let filter = {}
+
+  if(due_today) {
+    filter['due_date'] = todayDate()
+  }
+
+  console.log(filter);
 
   const todos = database.client.db('todos').collection('todos');
-  const todosList = await todos.find({}).skip(skip).limit(offset).toArray();
+  const todosList = await todos.find(filter).skip(skip).limit(offset).toArray();
   res.status(200);
   res.json({todosList});
 });

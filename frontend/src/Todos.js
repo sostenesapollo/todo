@@ -12,8 +12,11 @@ import {
   Checkbox,
   Grid,
   Button,
+  FormGroup,
+  FormControlLabel,
 } from "@mui/material";
 import Snackbar from "./snackbar";
+import { todayDate } from "./util";
 
 const useStyles = makeStyles({
   addTodoContainer: { padding: 10 },
@@ -50,6 +53,7 @@ function Todos() {
   const [loading, setLoading] = useState(false);
   const [loadingAddButton, setLoadingAddButton] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [filters, setFilters] = useState({ due_today: false });
   const [snackbar, setSnackbar] = useState({
     show: false,
     message: "",
@@ -59,7 +63,7 @@ function Todos() {
 
   useEffect(() => {
     loadMore();
-  }, [setTodos]);
+  }, []);
 
   function addTodo() {
     setLoadingAddButton(true);
@@ -77,7 +81,13 @@ function Todos() {
           setSnackbar({ show: true, message, severity: "error" });
         } else {
           const todo = await response.json();
-          setTodos([...todos, todo]);
+          if (
+            (filters.due_today && newTodo.due_date === todayDate()) ||
+            !filters.due_today
+          ) {
+            setTodos([...todos, todo]);
+          }
+
           setSnackbar({
             show: true,
             message: "Todo added successfully.",
@@ -126,9 +136,13 @@ function Todos() {
 
   const observer = useRef();
 
-  function loadMore() {
+  function loadMore(
+    { due_today, skip } = { due_today: false, skip: todos.length }
+  ) {
     setLoading(true);
-    fetch(`http://localhost:3001/?skip=${todos.length}&offset=${perPage}`)
+    fetch(
+      `http://localhost:3001/?skip=${skip}&offset=${perPage}?due_today=${due_today}`
+    )
       .then((response) => response.json())
       .then(({ todosList }) => {
         const newTodos = uniqueArray([...todos, ...todosList]);
@@ -138,6 +152,25 @@ function Todos() {
         setTodos(newTodos);
         setLoading(false);
       });
+  }
+
+  function onChangeDueTodayCheckbox(event) {
+    setLoading(true);
+    fetch(
+      `http://localhost:3001/?skip=${0}?offset=${perPage}&due_today=${
+        event.target.checked
+      }`
+    ).then(async (response) => {
+      setLoading(false);
+      const { todosList } = await response.json();
+      console.log(todosList, !event.target.checked);
+      setTodos(todosList);
+      setFilters({ due_today: !event.target.checked });
+      // setFilters({
+      //   ...filters,
+      //   due_today: event.target.checked,
+      // });
+    });
   }
 
   const lastTodoElementRef = useCallback(
@@ -208,6 +241,19 @@ function Todos() {
             Add
           </LoadingButton>
         </Box>
+
+        <FormGroup>
+          <p>Filter By:</p>
+          <FormControlLabel
+            control={
+              <Checkbox
+                onChange={onChangeDueTodayCheckbox}
+                checked={filters.due_today}
+              />
+            }
+            label="Only today todos"
+          />
+        </FormGroup>
       </Paper>
       <Paper className={classes.todosContainer}>
         {todos.length > 0 && (
