@@ -1,22 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import makeStyles from "@mui/styles/makeStyles";
-import CircularProgress from "@mui/material/CircularProgress";
-import LoadingButton from "@mui/lab/LoadingButton";
-import {
-  Container,
-  Typography,
-  Icon,
-  Paper,
-  Box,
-  TextField,
-  Checkbox,
-  Grid,
-  Button,
-  FormGroup,
-  FormControlLabel,
-} from "@mui/material";
+import { Container } from "@mui/material";
 import Snackbar from "./snackbar";
 import { todayDate } from "./util";
+import { TodosList } from "./components/todos-list";
+import { Title } from "./components/title";
+import { AddTodoContainer } from "./components/add-todo-container";
 
 const useStyles = makeStyles({
   addTodoContainer: { padding: 10 },
@@ -163,13 +152,8 @@ function Todos() {
     ).then(async (response) => {
       setLoading(false);
       const { todosList } = await response.json();
-      console.log(todosList, !event.target.checked);
       setTodos(todosList);
       setFilters({ due_today: !event.target.checked });
-      // setFilters({
-      //   ...filters,
-      //   due_today: event.target.checked,
-      // });
     });
   }
 
@@ -196,116 +180,28 @@ function Todos() {
         show={snackbar.show}
         setShow={(show) => setSnackbar({ ...snackbar, show })}
       />
-      <Typography variant="h3" component="h1" gutterBottom>
-        Todos
-      </Typography>
-      <Paper className={classes.addTodoContainer}>
-        <Box display="flex" flexDirection="row">
-          <Box flexGrow={1}>
-            <TextField
-              fullWidth
-              value={newTodo.text}
-              onKeyPress={(event) => {
-                if (event.key === "Enter") {
-                  addTodo();
-                }
-              }}
-              disabled={loadingAddButton}
-              onChange={(event) =>
-                setNewTodo({ ...newTodo, text: event.target.value })
-              }
-            />
-          </Box>
-          <Box flexGrow={1}>
-            <TextField
-              fullWidth
-              value={newTodo.due_date}
-              onKeyPress={(event) => {
-                if (event.key === "Enter") {
-                  addTodo();
-                }
-              }}
-              disabled={loadingAddButton}
-              onChange={(event) =>
-                setNewTodo({ ...newTodo, due_date: event.target.value })
-              }
-            />
-          </Box>
-          <LoadingButton
-            className={classes.addTodoButton}
-            startIcon={<Icon>add</Icon>}
-            onClick={() => addTodo(newTodo.text)}
-            disabled={loadingAddButton}
-            loading={loadingAddButton}
-          >
-            Add
-          </LoadingButton>
-        </Box>
 
-        <FormGroup>
-          <p>Filter By:</p>
-          <FormControlLabel
-            control={
-              <Checkbox
-                onChange={onChangeDueTodayCheckbox}
-                checked={filters.due_today}
-              />
-            }
-            label="Only today todos"
-          />
-        </FormGroup>
-      </Paper>
-      <Paper className={classes.todosContainer}>
-        {todos.length > 0 && (
-          <Box display="flex" flexDirection="column" alignItems="space-between">
-            {todos.map(({ id, text, due_date, completed }, index) => (
-              <Box
-                key={id}
-                ref={
-                  todos.length - 1 === index ? lastTodoElementRef : undefined
-                }
-                display="flex"
-                flexDirection="row"
-                alignItems="center"
-                className={classes.todoContainer}
-              >
-                <Checkbox
-                  checked={completed}
-                  onChange={() => toggleTodoCompleted(id)}
-                ></Checkbox>
-                <Box width="50%">
-                  <Typography
-                    className={completed ? classes.todoTextCompleted : ""}
-                    variant="body1"
-                  >
-                    {text}
-                  </Typography>
-                </Box>
-                <Box width="50%">
-                  <Typography
-                    className={completed ? classes.todoTextCompleted : ""}
-                    variant="body1"
-                  >
-                    {due_date}
-                  </Typography>
-                </Box>
-                <Button
-                  className={classes.deleteTodo}
-                  startIcon={<Icon>delete</Icon>}
-                  onClick={() => deleteTodo(id)}
-                >
-                  Delete
-                </Button>
-              </Box>
-            ))}
-          </Box>
-        )}
+      <Title text={"todos"} newTodo={newTodo} />
 
-        <Grid container direction="row" justifyContent="space-around">
-          {loading && <CircularProgress />}
-          {!hasMore && "No more todos to load."}
-        </Grid>
-      </Paper>
+      <AddTodoContainer
+        classes={classes}
+        loadingAddButton={loadingAddButton}
+        filters={filters}
+        newTodo={newTodo}
+        onChangeDueTodayCheckbox={onChangeDueTodayCheckbox}
+        addTodo={addTodo}
+        setNewTodo={setNewTodo}
+      />
+
+      <TodosList
+        todos={todos}
+        lastTodoElementRef={lastTodoElementRef}
+        classes={classes}
+        toggleTodoCompleted={toggleTodoCompleted}
+        loading={loading}
+        hasMore={hasMore}
+        deleteTodo={deleteTodo}
+      />
     </Container>
   );
 }
